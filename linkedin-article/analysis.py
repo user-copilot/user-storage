@@ -1,4 +1,4 @@
-"""Иллюстративный кейс: прогноз выручки оптового дистрибьютора (~$20 млн/год).
+"""Illustrative case: monthly sales forecast of a mid-size manufacturer (~$20M/yr).
 ВСЕ ДАННЫЕ СИНТЕТИЧЕСКИЕ - компания вымышленная."""
 import json
 import numpy as np, pandas as pd
@@ -139,80 +139,99 @@ res = dict(final=final, rev2025=float(df.revenue[-12:].sum()), rev2026=float(pre
 json.dump(res, open("results.json","w"), indent=1, ensure_ascii=False)
 print(json.dumps(res, indent=1, ensure_ascii=False)); print(fc)
 
-# ---------- 7. Графики ----------
+# ---------- 7. Charts (EN / UK) ----------
 BLUE, ORANGE, GRAY, INK, MUTED, GRID = "#2a78d6", "#eb6834", "#a8a7a0", "#0b0b0b", "#52514e", "#e6e5e0"
 plt.rcParams.update({"font.family":"DejaVu Sans","axes.spines.top":False,"axes.spines.right":False,
     "axes.edgecolor":GRID,"axes.labelcolor":MUTED,"xtick.color":MUTED,"ytick.color":MUTED,
     "axes.grid":True,"grid.color":GRID,"grid.linewidth":.8,"axes.axisbelow":True,"figure.facecolor":"white"})
-def save(fig, name):
-    fig.savefig(f"charts/{name}.png", dpi=170, bbox_inches="tight", facecolor="white"); plt.close(fig)
-M = lambda v, p: f"\\${v/1e6:.1f}M"
+D = "\\$"
+T = {
+ "en": dict(
+  months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+  f1_t="Monthly sales and 2026 forecast", f1_s=lambda r: f"2025: {D}{r['rev2025']/1e6:.1f}M  →  2026 (forecast): {D}{r['rev2026']/1e6:.1f}M ({r['growth']*100:+.0f}%)",
+  actual="Actual (2022–2025)", band="80% interval", fc="2026 forecast", ylab=f"Sales per month, {D}M",
+  peak=lambda r: f"Peak {r['peak']}: ≈{D}{r['peak_val']/1e6:.2f}M",
+  f2_t="Forecast accuracy on unseen data (backtest, 6-month horizon)", f2_s="Lower is better. The model is trained only on data from before the forecast period",
+  f2_y="Mean error (MAPE), %", lab={"naive":"Old method:\nlast year × growth","ridge":"Ridge regression\n(promos, marketing, work days)","gbr":"Gradient Boosting\n(on trend residuals)","blend":"Ensemble\nRidge + Boosting"},
+  f3_t="Seasonal profile: which months make the year", f3_y="Deviation from average month, %",
+  f3_s=lambda r: f"Model estimate: a promo campaign ≈ {(np.exp(r['coef_promo'])-1)*100:+.0f}% to monthly sales; +10% marketing ≈ {(1.1**r['coef_mkt']-1)*100:+.0f}% (correlation)",
+  f4_t="What it gives the business (modelled estimate)", f4_l=f"Finished-goods safety stock, {D}K", f4_lab=["Old method","Model"], f4_u=lambda v: f"{D}{v/1e3:.0f}K",
+  f4_free=lambda r: f"frees up ≈ {D}{r['freed']/1e3:.0f}K of working capital",
+  f4_r=f"What-if: +20% marketing (Sep–Nov), {D}K", f4_bars=["Extra gross profit\nfrom +20% marketing","Extra marketing\nspend"], f4_note="does not pay back → do not raise the budget",
+  f5_t="Backtest: forecast vs actual on data the model has not seen", f5_s="Forecasts made at the start of 2025, 6 months ahead; marketing in the test is the plan, not the actual",
+  f5_a="Actual", f5_m=lambda r: f"Model (MAPE {r:.1f}% over the whole backtest)", f5_o=lambda r: f"Old method (MAPE {r:.1f}%)"),
+ "uk": dict(
+  months=["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"],
+  f1_t="Продажі за місяцями та прогноз на 2026 рік", f1_s=lambda r: f"2025: {r['rev2025']/1e6:.1f} млн {D}  →  2026 (прогноз): {r['rev2026']/1e6:.1f} млн {D} ({r['growth']*100:+.0f}%)",
+  actual="Факт (2022–2025)", band="Інтервал 80%", fc="Прогноз 2026", ylab=f"Продажі за місяць, млн {D}",
+  peak=lambda r: f"Пік {r['peak']}: ≈{r['peak_val']/1e6:.2f} млн {D}",
+  f2_t="Точність прогнозу на невідомих даних (бектест, горизонт 6 міс.)", f2_s="Чим нижче, тим краще. Модель навчалась лише на даних «до» прогнозованого періоду",
+  f2_y="Середня похибка (MAPE), %", lab={"naive":"Старий метод:\nминулий рік × зростання","ridge":"Ridge-регресія\n(акції, маркетинг, роб. дні)","gbr":"Gradient Boosting\n(на залишках тренду)","blend":"Ансамбль\nRidge + Boosting"},
+  f3_t="Сезонний профіль: які місяці «роблять» рік", f3_y="Відхилення від середнього місяця, %",
+  f3_s=lambda r: f"Оцінка моделі: акція ≈ {(np.exp(r['coef_promo'])-1)*100:+.0f}% до продажів місяця; +10% маркетингу ≈ {(1.1**r['coef_mkt']-1)*100:+.0f}% (кореляція)",
+  f4_t="Що це дає бізнесу (модельна оцінка)", f4_l=f"Страховий запас готової продукції, тис. {D}", f4_lab=["Старий метод","Модель"], f4_u=lambda v: f"{D}{v/1e3:.0f} тис.",
+  f4_free=lambda r: f"вивільняється ≈ {D}{r['freed']/1e3:.0f} тис. обігових коштів",
+  f4_r=f"«Що якщо»: +20% маркетингу (вер–лис), тис. {D}", f4_bars=["Додатковий валовий\nприбуток від +20% маркетингу","Додаткові витрати\nна маркетинг"], f4_note="не окупається → бюджет краще не збільшувати",
+  f5_t="Бектест: прогноз проти факту на даних, яких модель не бачила", f5_s="Прогнози з початку 2025 року на 6 місяців уперед; маркетинг у тесті — плановий, а не фактичний",
+  f5_a="Факт", f5_m=lambda r: f"Модель (MAPE {r:.1f}% за весь бектест)", f5_o=lambda r: f"Старий метод (MAPE {r:.1f}%)"),
+}
+def save(fig, lang, name):
+    import os; os.makedirs(f"charts/{lang}", exist_ok=True)
+    fig.savefig(f"charts/{lang}/{name}.png", dpi=170, bbox_inches="tight", facecolor="white"); plt.close(fig)
+def title(ax, t, sub):
+    ax.set_title(t, loc="left", fontsize=14, color=INK, weight="bold", pad=18)
+    ax.text(0, 1.02, sub, transform=ax.transAxes, color=MUTED, fontsize=10)
 
-# Fig1 прогноз
-fig, ax = plt.subplots(figsize=(10, 5.2))
-ax.plot(df.month, df.revenue/1e6, color=BLUE, lw=2, label="Факт (2022–2025)")
-ax.fill_between(fidx, lo/1e6, hi/1e6, color=ORANGE, alpha=.18, lw=0, label="Интервал 80%")
-ax.plot(fidx, pred/1e6, color=ORANGE, lw=2, ls=(0,(5,2)), label="Прогноз 2026")
-ax.plot([df.month.iloc[-1], fidx[0]], [df.revenue.iloc[-1]/1e6, pred[0]/1e6], color=ORANGE, lw=2, ls=(0,(5,2)))
-ax.annotate(f"Пик {res['peak']}: ≈{res['peak_val']/1e6:.2f} млн \\$", (fc.month[fc.forecast.idxmax()], res["peak_val"]/1e6),
-            xytext=(-150, 8), textcoords="offset points", color=INK, fontsize=10, arrowprops=dict(arrowstyle="-", color=GRAY))
-ax.set_ylabel("Выручка в месяц, млн \\$"); ax.set_ylim(0.8, None)
-ax.set_title("Выручка по месяцам и прогноз на 2026 год", loc="left", fontsize=14, color=INK, pad=18, weight="bold")
-ax.axvline(pd.Timestamp('2025-12-15'), color=GRAY, lw=1)
-ax.text(0, 1.02, f"2025: {res['rev2025']/1e6:.1f} млн \\$  →  2026 (прогноз): {res['rev2026']/1e6:.1f} млн \\$ ({res['growth']*100:+.0f}%)",
-        transform=ax.transAxes, color=MUTED, fontsize=10.5)
-ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0, .93)); save(fig, "fig1_forecast")
+def make_figs(lang):
+    L = T[lang]
+    # Fig1
+    fig, ax = plt.subplots(figsize=(10, 5.2))
+    ax.plot(df.month, df.revenue/1e6, color=BLUE, lw=2, label=L["actual"])
+    ax.fill_between(fidx, lo/1e6, hi/1e6, color=ORANGE, alpha=.18, lw=0, label=L["band"])
+    ax.plot(fidx, pred/1e6, color=ORANGE, lw=2, ls=(0,(5,2)), label=L["fc"])
+    ax.plot([df.month.iloc[-1], fidx[0]], [df.revenue.iloc[-1]/1e6, pred[0]/1e6], color=ORANGE, lw=2, ls=(0,(5,2)))
+    ax.axvline(pd.Timestamp("2025-12-15"), color=GRAY, lw=1)
+    ax.annotate(L["peak"](res), (fc.month[fc.forecast.idxmax()], res["peak_val"]/1e6), xytext=(-150, 8), textcoords="offset points",
+                color=INK, fontsize=10, arrowprops=dict(arrowstyle="-", color=GRAY))
+    ax.set_ylabel(L["ylab"]); ax.set_ylim(0.8, None)
+    title(ax, L["f1_t"], L["f1_s"](res)); ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0, .93)); save(fig, lang, "fig1_forecast")
+    # Fig2
+    fig, ax = plt.subplots(figsize=(10, 4.6))
+    order = ["naive","ridge","gbr","blend"]; vals = [summary.MAPE[k] for k in order]
+    cols = [GRAY if k=="naive" else (BLUE if k==final else "#9dbfe9") for k in order]
+    b = ax.bar([L["lab"][k] for k in order], vals, color=cols, width=.55)
+    for r_, v in zip(b, vals): ax.text(r_.get_x()+r_.get_width()/2, v+.15, f"{v:.1f}%", ha="center", color=INK, fontsize=12, weight="bold")
+    ax.set_ylabel(L["f2_y"]); ax.grid(axis="x", visible=False); ax.set_ylim(0, max(vals)*1.2)
+    title(ax, L["f2_t"], L["f2_s"]); save(fig, lang, "fig2_accuracy")
+    # Fig3
+    fig, ax = plt.subplots(figsize=(10, 4.6))
+    lrv = np.log(df.revenue.values); tt_ = np.arange(len(df))
+    detr = lrv - np.polyval(np.polyfit(tt_, lrv, 1), tt_)
+    prof = np.exp(pd.Series(detr).groupby(df.month.dt.month.values).mean().values); prof = prof/prof.mean(); pc = (prof-1)*100
+    b = ax.bar(L["months"], pc, color=[ORANGE if v>=20 else BLUE for v in pc], width=.6)
+    for r_, v in zip(b, pc): ax.text(r_.get_x()+r_.get_width()/2, v+(1.2 if v>=0 else -1.2), f"{v:+.0f}%".replace("-0%","0%").replace("+0%","0%").replace("-","−"), ha="center", va="bottom" if v>=0 else "top", fontsize=9.5, color=INK)
+    ax.axhline(0, color=GRAY, lw=1); ax.grid(axis="x", visible=False); ax.set_ylabel(L["f3_y"])
+    ax.set_ylim(min(pc)-6, max(pc)+7); ax.tick_params(axis="x", pad=10)
+    title(ax, L["f3_t"], L["f3_s"](res)); save(fig, lang, "fig3_seasonality")
+    # Fig4
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 4.6))
+    sv = [res["ss_old"], res["ss_new"]]
+    b = a1.bar(L["f4_lab"], [v/1e3 for v in sv], color=[GRAY, BLUE], width=.5)
+    for r_, v in zip(b, sv): a1.text(r_.get_x()+r_.get_width()/2, v/1e3+4, L["f4_u"](v), ha="center", fontsize=12, weight="bold", color=INK)
+    a1.set_title(L["f4_l"], loc="left", fontsize=11, color=INK, weight="bold"); a1.grid(axis="x", visible=False); a1.set_ylim(0, sv[0]/1e3*1.2)
+    a1.text(.5, -.18, L["f4_free"](res), transform=a1.transAxes, ha="center", va="top", color=ORANGE, fontsize=10.5, weight="bold")
+    vals = [uplift*0.28/1e3, mkt_extra/1e3]
+    b = a2.bar(L["f4_bars"], vals, color=[BLUE, ORANGE], width=.5)
+    for r_, v in zip(b, vals): a2.text(r_.get_x()+r_.get_width()/2, v+2, f"{D}{v:.0f}K" if lang=="en" else f"{D}{v:.0f} тис.", ha="center", fontsize=12, weight="bold", color=INK)
+    a2.set_title(L["f4_r"], loc="left", fontsize=11, color=INK, weight="bold"); a2.grid(axis="x", visible=False); a2.set_ylim(0, max(vals)*1.2)
+    a2.text(.5, -.18, L["f4_note"], transform=a2.transAxes, ha="center", va="top", color=INK, fontsize=10.5, weight="bold")
+    fig.suptitle(L["f4_t"], x=.01, ha="left", fontsize=14, weight="bold", color=INK, y=1.03); fig.subplots_adjust(wspace=.35); save(fig, lang, "fig4_business_effect")
+    # Fig5
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    sel = bt[bt.origin >= 36]; lastp = sel[sel.model == final].groupby("i").last(); nv = sel[sel.model == "naive"].groupby("i").last()
+    ax.plot(df.month[24:N], df.revenue[24:N]/1e6, color=INK, lw=2, label=L["f5_a"])
+    ax.plot(df.month[lastp.index], lastp.pred/1e6, color=BLUE, lw=2, marker="o", ms=4, label=L["f5_m"](summary.MAPE[final]))
+    ax.plot(df.month[nv.index], nv.pred/1e6, color=GRAY, lw=2, ls=(0,(5,2)), marker="o", ms=4, label=L["f5_o"](summary.MAPE["naive"]))
+    ax.set_ylabel(L["ylab"]); ax.legend(frameon=False, loc="upper left"); title(ax, L["f5_t"], L["f5_s"]); save(fig, lang, "fig5_backtest")
 
-# Fig2 точность
-fig, ax = plt.subplots(figsize=(10, 4.6))
-lab = {"naive":"Прежний метод:\nпрошлый год × рост","ridge":"Ridge-регрессия\n(акции, маркетинг, раб. дни)","gbr":"Gradient Boosting\n(на остатках тренда)","blend":"Ансамбль\nRidge + Boosting"}
-order = ["naive","ridge","gbr","blend"]; vals = [summary.MAPE[k] for k in order]
-cols = [GRAY if k=="naive" else (BLUE if k==final else "#9dbfe9") for k in order]
-b = ax.bar([lab[k] for k in order], vals, color=cols, width=.55)
-for r, v in zip(b, vals): ax.text(r.get_x()+r.get_width()/2, v+.15, f"{v:.1f}%", ha="center", color=INK, fontsize=12, weight="bold")
-ax.set_ylabel("Средняя ошибка (MAPE), %"); ax.grid(axis="x", visible=False); ax.set_ylim(0, max(vals)*1.2)
-ax.set_title("Точность прогноза на отложенных данных (бэктест, горизонт 6 мес.)", loc="left", fontsize=14, color=INK, weight="bold", pad=18)
-ax.text(0, 1.02, "Чем ниже, тем лучше. Модель обучалась только на данных «до» прогнозируемого периода", transform=ax.transAxes, color=MUTED, fontsize=10.5)
-save(fig, "fig2_accuracy")
-
-# Fig5 бэктест: факт против прогноза (последние 2 origin = 2025 год)
-fig, ax = plt.subplots(figsize=(10, 4.8))
-sel = bt[(bt.origin >= 36)]
-last = sel[sel.model == final].groupby("i").last()
-nv = sel[sel.model == "naive"].groupby("i").last()
-ax.plot(df.month[24:N], df.revenue[24:N]/1e6, color=INK, lw=2, label="Факт")
-ax.plot(df.month[last.index], last.pred/1e6, color=BLUE, lw=2, marker="o", ms=4, label=f"Модель (MAPE {summary.MAPE[final]:.1f}% по всему бэктесту)")
-ax.plot(df.month[nv.index], nv.pred/1e6, color=GRAY, lw=2, ls=(0,(5,2)), marker="o", ms=4, label=f"Прежний метод (MAPE {summary.MAPE['naive']:.1f}%)")
-ax.set_ylabel("Выручка в месяц, млн \\$"); ax.legend(frameon=False, loc="upper left")
-ax.set_title("Бэктест: прогноз против факта на данных, которых модель не видела", loc="left", fontsize=14, color=INK, weight="bold", pad=18)
-ax.text(0, 1.02, "Показаны прогнозы, сделанные из точек начала 2025 года на 6 месяцев вперёд; маркетинг в тесте — плановый, не фактический", transform=ax.transAxes, color=MUTED, fontsize=10)
-save(fig, "fig5_backtest")
-
-# Fig3 сезонность
-lrv = np.log(df.revenue.values); tt_ = np.arange(len(df))
-detr = lrv - np.polyval(np.polyfit(tt_, lrv, 1), tt_)
-prof = np.exp(pd.Series(detr).groupby(df.month.dt.month.values).mean().values); prof = prof/prof.mean()
-fig, ax = plt.subplots(figsize=(10, 4.6))
-mn = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]
-pc = (prof-1)*100
-b = ax.bar(mn, pc, color=[ORANGE if v>=20 else BLUE for v in pc], width=.6)
-for r, v in zip(b, pc): ax.text(r.get_x()+r.get_width()/2, v+(1.2 if v>=0 else -1.2), f"{v:+.0f}%".replace("-0%","0%").replace("+0%","0%"), ha="center", va="bottom" if v>=0 else "top", fontsize=9.5, color=INK)
-ax.axhline(0, color=GRAY, lw=1); ax.grid(axis="x", visible=False); ax.set_ylabel("Отклонение от среднего месяца, %")
-ax.set_ylim(min(pc)-6, max(pc)+7); ax.tick_params(axis="x", pad=18)
-ax.set_title("Сезонный профиль: какие месяцы «делают» год", loc="left", fontsize=14, color=INK, weight="bold", pad=18)
-ax.text(0, 1.02, f"Оценка модели: акция ≈ {(np.exp(res['coef_promo'])-1)*100:+.0f}% к выручке месяца; +10% маркетинга ≈ {(1.1**res['coef_mkt']-1)*100:+.0f}% (корреляция)", transform=ax.transAxes, color=MUTED, fontsize=10.5)
-save(fig, "fig3_seasonality")
-
-# Fig4 эффект
-fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 4.6))
-b = a1.bar(["Прежний метод", "Модель"], [res["ss_old"]/1e3, res["ss_new"]/1e3], color=[GRAY, BLUE], width=.5)
-for r, v in zip(b, [res["ss_old"], res["ss_new"]]): a1.text(r.get_x()+r.get_width()/2, v/1e3+4, f"\\${v/1e3:.0f} тыс.", ha="center", fontsize=12, weight="bold", color=INK)
-a1.set_title("Страховой запас, тыс. \\$", loc="left", fontsize=12, color=INK, weight="bold"); a1.grid(axis="x", visible=False); a1.set_ylim(0, res["ss_old"]/1e3*1.2)
-a1.text(.5, -.18, f"высвобождается ≈ \\${res['freed']/1e3:.0f} тыс. оборотных средств", transform=a1.transAxes, ha="center", va="top", color=ORANGE, fontsize=10.5, weight="bold")
-vals = [uplift*0.28/1e3, mkt_extra/1e3]
-b = a2.bar(["Доп. валовая прибыль\nот +20% маркетинга", "Доп. затраты\nна маркетинг"], vals, color=[BLUE, ORANGE], width=.5)
-for r, v in zip(b, vals): a2.text(r.get_x()+r.get_width()/2, v+2, f"\\${v:.0f} тыс.", ha="center", fontsize=12, weight="bold", color=INK)
-a2.set_title("«Что если» +20% маркетинга (сен–ноя), тыс. \\$", loc="left", fontsize=12, color=INK, weight="bold"); a2.grid(axis="x", visible=False); a2.set_ylim(0, max(vals)*1.2)
-a2.text(.5, -.18, "не окупается → бюджет лучше не увеличивать", transform=a2.transAxes, ha="center", va="top", color=INK, fontsize=10.5, weight="bold")
-fig.suptitle("Что это даёт бизнесу (модельная оценка)", x=.01, ha="left", fontsize=14, weight="bold", color=INK, y=1.05)
-fig.subplots_adjust(wspace=.3); save(fig, "fig4_business_effect")
+for lg in ("en", "uk"): make_figs(lg)
