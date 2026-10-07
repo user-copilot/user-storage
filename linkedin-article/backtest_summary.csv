@@ -1,0 +1,5 @@
+model,MAPE,err_std,under10_share
+blend,3.456,0.037,0.0
+gbr,3.719,0.042,0.0
+naive,6.669,0.089,0.119
+ridge,3.537,0.038,0.0
